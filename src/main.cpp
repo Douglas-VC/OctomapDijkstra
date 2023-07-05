@@ -4,18 +4,9 @@
 #include <pcl/octree/octree_search.h>
 #include <cmath>
 #include <octomap/octomap.h>
-#include "ros/ros.h"
-#include <espeleo_control/Path.h>
-#include "geometry_msgs/Polygon.h"
-#include "geometry_msgs/Point32.h"
-#include "geometry_msgs/PointStamped.h"
-#include "std_msgs/String.h"
 #include <chrono>
-#include <tf/transform_listener.h>
 
-#include "coder_array.h"
 #include "Dijkstra.h"
-
 using namespace std::chrono;
 
 typedef pcl::PointCloud<pcl::PointXYZ>::Ptr PointCloud;
@@ -48,7 +39,6 @@ printExecutionTime(std::chrono::high_resolution_clock::time_point start,
 }
 
 PointCloud importPointCloud() {
-
     PointCloud cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(
@@ -136,7 +126,6 @@ void populateAdjacencyList(AdjacencyList &AdjacencyList, int rows, int columns) 
 
 std::vector<double> makeStepVector(double beg, double step, double end) {
     std::vector<double> vec;
-    vec.reserve(fabs(end - beg) / step + 1);
     while (beg <= end) {
         vec.push_back(beg);
         beg += step;
@@ -356,26 +345,6 @@ void printPathCoordinates(Matrix &pathCoordinates) {
     }
 }
 
-geometry_msgs::Polygon createPathMessageRos(Matrix &pathCoordinates) {
-    geometry_msgs::Polygon path_msg;
-    geometry_msgs::Point32 p;
-    p.z = 0.0;
-
-    std::ofstream MyFile("/home/douglas/Área de Trabalho/Dijkstra/path.txt");
-
-    for (int i = 0; i < pathCoordinates.size(0); i++) {
-        p.x = pathCoordinates.at(i, 0);
-        p.y = pathCoordinates.at(i, 1);
-        path_msg.points.push_back(p);
-
-        MyFile << pathCoordinates.at(i, 0) << " "
-               << pathCoordinates.at(i, 1) << " "
-               << pathCoordinates.at(i, 2) << std::endl;
-    }
-
-    return path_msg;
-}
-
 void calculateAllCosts(const doubleVector &pathIndexes, Matrix &graphCoordinates, std::vector<double> &allCosts,
                        float distanceWeight, float heightWeight) {
     int node1;
@@ -404,14 +373,10 @@ void calculateAllCosts(const doubleVector &pathIndexes, Matrix &graphCoordinates
 int main(int argc, char **argv) {
     /*------------ROS Setup------------*/
 
-    ros::init(argc, argv, "dijkstra_planning");
-    ros::NodeHandle n;
-    ros::Duration(0.5).sleep();
-
-    std::string octomapFilePath; // Arquivo octomap a ser importado
-    int metric; // Métrica utilizada no planejamento de caminhos
-    float distanceWeight;
-    float heightWeight;
+    std::string octomapFilePath;
+    int metric;
+    float distanceWeight {1.0f};
+    float heightWeight {50.0f};
     std::string sourceFrame; // Frames para pegar pose do robô
     std::string targetFrame;
 
@@ -428,103 +393,24 @@ int main(int argc, char **argv) {
                 e);
     }
 
-    // Tópico onde será publicado o caminho gerado
-    ros::Publisher pub_traj = n.advertise<espeleo_control::Path>("espeleo/traj_points", 1);
-    espeleo_control::Path path;
-    path.closed_path_flag = false;
-    path.insert_n_points = 3;
-    path.filter_path_n_average = 3;
-
-
-    // Obtendo coordenada inicial
-//    tf::TransformListener listener;
-//    tf::StampedTransform transform;
-//    std::cout << "Esperando coordenada inicial do caminho ..." << std::endl;
-//    int tf_read = 0;
-//    while (tf_read == 0) {
-//        try {
-//            listener.lookupTransform(sourceFrame, targetFrame, ros::Time(0), transform);
-//            tf_read = 1;
-//        } catch (tf::TransformException &ex) {
-//            ros::Duration(1.0).sleep();
-//        }
-//    }
-//    std::cout << "Coordenada inicial recebida -> x: " << float(transform.getOrigin().x()) << " y: "
-//              << float(transform.getOrigin().y()) << std::endl;
-
-//    std::cout << "Esperando coordenada inicial do caminho ..." << std::endl;
-//    geometry_msgs::PointStampedConstPtr startPosePointer = ros::topic::waitForMessage<geometry_msgs::PointStamped>(
-//            "clicked_point");
-//    geometry_msgs::PointStamped startPose = *startPosePointer;
-//    std::cout << "Coordenada final recebida -> x: " << float(startPose.point.x) << " y: " << float(startPose.point.y)
-//              << std::endl;
-
-
-    // Obtendo coordenada final
-//    std::cout << "Esperando coordenada final do caminho ..." << std::endl;
-//    geometry_msgs::PointStampedConstPtr goalPosePointer = ros::topic::waitForMessage<geometry_msgs::PointStamped>(
-//            "clicked_point");
-//    geometry_msgs::PointStamped goalPose = *goalPosePointer;
-//    std::cout << "Coordenada final recebida -> x: " << float(goalPose.point.x) << " y: " << float(goalPose.point.y)
-//              << std::endl;
-
-
     /*------------Setup------------*/
     auto start = high_resolution_clock::now();
 
-//    auto startPositionX = float(transform.getOrigin().x());
-//    auto startPositionY = float(transform.getOrigin().y());
-//    auto goalPositionX = float(goalPose.point.x);
-//    auto goalPositionY = float(goalPose.point.y);
-//
-//    auto startPositionX = float(startPose.point.x);
-//    auto startPositionY = float(startPose.point.y);
+    // Campinho
+    float startPositionX {13.8f};
+    float startPositionY {-4.1f};
+    float goalPositionX {-15.0f};
+    float goalPositionY {1.25f};
 
-// Campinho
-//    float startPositionX = 13.8f;
-//    float startPositionY = -4.1f;
-//    float goalPositionX = -15.0f;
-//    float goalPositionY = 1.25f;
-
-// Corredor
-//    float startPositionX = 0.0f;
-//    float startPositionY = 0.0f;
-//    float goalPositionX = -12.10f;
-//    float goalPositionY = 16.4f;
-
-// Corredor UFMG 1
-//    float startPositionX = 17.1577f;
-//    float startPositionY = -0.292194f;
-//    float goalPositionX = -0.477881f;
-//    float goalPositionY = -6.2912f;
-
-// Corredor UFMG 2
-//    float startPositionX = -0.597627f;
-//    float startPositionY = -6.46333f;
-//    float goalPositionX = -8.75299f;
-//    float goalPositionY = -0.400397f;
-
-// Corredor UFMG 3
-//    float startPositionX = -8.83121f;
-//    float startPositionY = -0.641502f;
-//    float goalPositionX = 1.66436f;
-//    float goalPositionY = 3.62138f;
-
-// Corredor UFMG 4
-    float startPositionX = 1.72808f;
-    float startPositionY = 3.48767f;
-    float goalPositionX = 14.5491f;
-    float goalPositionY = -0.429702f;
-
-    float graphAndOctreeResolution; // Resolução da octree e grafo em metros
+    float graphAndOctreeResolution;
 
     PointCloud cloud = importOctomapCreatePointCloud(octomapFilePath, graphAndOctreeResolution);
     Octree octree = transformPointCloudToOctree(cloud, graphAndOctreeResolution);
 
-    int rows = 0;
-    int columns = 0;
+    int rows {};
+    int columns {};
     getMatrixDimensions(cloud, rows, columns, graphAndOctreeResolution);
-    int N = rows * columns;
+    int N {rows * columns};
 
     Matrix graphCoordinates;
     Matrix pathCoordinates;
@@ -573,7 +459,6 @@ int main(int argc, char **argv) {
     pathCoordinates.set_size(int(pathIndexes.size()), 3);
     getPathCoordinatesFromIndex(graphCoordinates, pathIndexes, pathCoordinates);
 //    printPathCoordinates(pathCoordinates);
-    path.path = createPathMessageRos(pathCoordinates);
 
     /*------------Calculating costs for all metrics and saving results on file------------*/
 
@@ -599,17 +484,6 @@ int main(int argc, char **argv) {
         }
     }
     ResultsFile << "\n------------------------------------------------------\n" << std::endl;
-
-    /*------------Path Publishing------------*/
-
-    while (ros::ok()) {
-        if (pub_traj.getNumSubscribers() > 0) {
-            ros::Duration(0.5).sleep();
-            std::cout << "Enviando caminho gerado para controle do robô.\n" << std::endl;
-            pub_traj.publish(path);
-            break;
-        }
-    }
 
     return 0;
 }
