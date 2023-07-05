@@ -1,77 +1,64 @@
 #include "Dijkstra.h"
-#include "rt_nonfinite.h"
-#include "coder_array.h"
 #include <vector>
 #include <algorithm>
+#include <cstdint>
+#include <iostream>
 
-namespace coder {
-    void find_connections(::coder::array<int, 1U> &nodeIndex, int counter, const coder::array<int, 2U> &E, double b_I) {
-        int aux_counter = 0;
-        nodeIndex.set_size(counter);
-        for (int index = 0; index < counter - 1; index++) {
-            if (E[index] == b_I) {
-                nodeIndex[aux_counter] = index;
-                aux_counter++;
-            }
-        }
-        nodeIndex.set_size(aux_counter);
-    }
+using std::vector;
 
-    void find_not_NaN(::coder::array<int, 1U> &nodeIndex, int numberOfNodes, coder::array<double, 1U> &iTable) {
-        int aux_counter = 0;
-        nodeIndex.set_size(numberOfNodes);
-        for (int index = 0; index < numberOfNodes - 1; index++) {
-            if (!rtIsNaN(iTable[index])) {
-                nodeIndex[aux_counter] = index;
-                aux_counter++;
-            }
+//void find_connections(vector<int> &nodeIndex, int counter, vector<vector<int>> &E, double b_I) {
+//    int aux_counter = 0;
+//    nodeIndex.resize(counter);
+//    for (int index = 0; index < counter - 1; index++) {
+//        if (E[index] == static_cast<int>(b_I)) {
+//            nodeIndex[aux_counter] = index;
+//            aux_counter++;
+//        }
+//    }
+//    nodeIndex.set_size(aux_counter);
+//}
+
+void find_not_NaN(vector<int> &nodeIndex, int numberOfNodes, vector<double> &iTable) {
+    int aux_counter = 0;
+    nodeIndex.resize(numberOfNodes);
+    for (int index = 0; index < numberOfNodes - 1; index++) {
+        if (iTable[index] != -1) {
+            nodeIndex[aux_counter] = index;
+            aux_counter++;
         }
-        nodeIndex.set_size(aux_counter);
     }
+    nodeIndex.resize(aux_counter);
 }
 
-double Dijkstra(const std::vector<std::vector<int>> &AdjacencyList, const std::vector<std::vector<float>> &CostList,
-                int SID, int FID, std::vector<double> &pathIndexes) {
+double Dijkstra(const vector<vector<int>> &AdjacencyList, const vector<vector<float>> &CostList,
+                int SID, int FID, vector<double> &pathIndexes) {
 
-    coder::array<double, 1U> iTable;
-    coder::array<double, 1U> jTable;
-    coder::array<double, 1U> minCost;
-    coder::array<int, 2U> E;
-    coder::array<int, 1U> nodeIndex;
-    coder::array<int, 1U> neighbours;
-    coder::array<boolean_T, 1U> auxArray2;
-    coder::array<boolean_T, 1U> isSettled;
+    int numberOfNodes {static_cast<int>(AdjacencyList.size())};
+    vector<double> iTable(numberOfNodes, -1);
+    vector<double> jTable(numberOfNodes, -1);
+    vector<double> minCost(numberOfNodes, INT32_MAX);
+    vector<int> nodeIndex(numberOfNodes);
+    vector<int> neighbours(numberOfNodes);
+    vector<bool> isSettled(numberOfNodes);
+    vector<vector<int>> E;
+
     double b_I;
     int b_J;
     int nx;
-
-    //  Find the minimum costs and paths using Dijkstra's Algorithm
-    //  Initializations
-    int numberOfNodes = int(AdjacencyList.size());
-    iTable.set_size(numberOfNodes);
-    jTable.set_size(numberOfNodes);
-    minCost.set_size(numberOfNodes);
-    isSettled.set_size(numberOfNodes);
-    auxArray2.set_size(numberOfNodes);
-    for (int index = 0; index < numberOfNodes; index++) {
-        iTable[index] = rtNaN;
-        minCost[index] = rtInf;
-        isSettled[index] = false;
-    }
 
     b_I = SID;
     minCost[SID] = 0.0;
     iTable[SID] = 0.0;
     isSettled[SID] = true;
 
-    std::vector<std::vector<double>> paths(numberOfNodes, std::vector<double>(0));
+    vector<vector<double>> paths(numberOfNodes, vector<double>());
     paths[SID].push_back(SID);
 
     //  Execute Dijkstra's Algorithm for this vertex
     while (!isSettled[FID]) {
         //  Update the table
         jTable = iTable;
-        iTable[static_cast<int>(b_I)] = rtNaN;
+        iTable[static_cast<int>(b_I)] = -1;
 
         //  Calculate the costs to the neighbor nodes and record paths
         nx = int(AdjacencyList[static_cast<int>(b_I)].size());
@@ -79,8 +66,7 @@ double Dijkstra(const std::vector<std::vector<int>> &AdjacencyList, const std::v
             b_J = AdjacencyList[static_cast<int>(b_I)][index];
             if (!isSettled[b_J]) {
                 float c = CostList[static_cast<int>(b_I)][index];
-                if (rtIsNaN(jTable[b_J]) ||
-                    (jTable[b_J] > static_cast<float>(jTable[static_cast<int>(b_I)]) + c)) {
+                if (jTable[b_J] == -1 || jTable[b_J] > static_cast<float>(jTable[static_cast<int>(b_I)]) + c) {
                     iTable[b_J] = static_cast<float>(jTable[static_cast<int>(b_I)]) + c;
                     paths[static_cast<int>(b_J)] = (paths[static_cast<int>(b_I)]);
                     paths[static_cast<int>(b_J)].push_back(b_J);
@@ -89,12 +75,11 @@ double Dijkstra(const std::vector<std::vector<int>> &AdjacencyList, const std::v
                 }
             }
         }
-
         //  Find values in the table
-        coder::find_not_NaN(nodeIndex, numberOfNodes, iTable);
+        find_not_NaN(nodeIndex, numberOfNodes, iTable);
 
         //  Settle the minimum value in the table
-        nx = nodeIndex.size(0);
+        nx = nodeIndex.size();
 
         b_I = iTable[static_cast<int>(nodeIndex[0])];
 

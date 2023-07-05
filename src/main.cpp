@@ -172,9 +172,9 @@ void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<v
             if (indices.empty()) {
                 removeGraphConnections(AdjacencyList, index);
             } else if (indices.size() == 1) {
-                graphCoordinates[i][0] = (*cloud)[indices[0]].x;
-                graphCoordinates[i][1] = (*cloud)[indices[0]].y;
-                graphCoordinates[i][2] = (*cloud)[indices[0]].z;
+                graphCoordinates[index][0] = (*cloud)[indices[0]].x;
+                graphCoordinates[index][1] = (*cloud)[indices[0]].y;
+                graphCoordinates[index][2] = (*cloud)[indices[0]].z;
                 realGraphIndexes.push_back(index);
             } else {
                 float aux = (*cloud)[indices[0]].z;
@@ -185,12 +185,12 @@ void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<v
                         index_aux = k;
                     }
                 }
-                graphCoordinates[i][0] = (*cloud)[indices[index_aux]].x;
-                graphCoordinates[i][1] = (*cloud)[indices[index_aux]].y;
-                graphCoordinates[i][2] = (*cloud)[indices[index_aux]].z;
+                graphCoordinates[index][0] = (*cloud)[indices[index_aux]].x;
+                graphCoordinates[index][1] = (*cloud)[indices[index_aux]].y;
+                graphCoordinates[index][2] = (*cloud)[indices[index_aux]].z;
                 realGraphIndexes.push_back(index);
             }
-            index += 1;
+            index++;
         }
     }
 }
@@ -236,10 +236,6 @@ void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<
                             cost += height(graphCoordinates[AdjacencyList[AdjacencyList[i][j]][k]][2],
                                            graphCoordinates[AdjacencyList[i][j]][2]);
                         }
-//                        for (int k = 0; k < AdjacencyList[AdjacencyList[i][j]].size(); k++) {
-//                            cost += height(graphCoordinates.at(AdjacencyList[AdjacencyList[i][j]][k], 2),
-//                                           graphCoordinates.at(i, 2));
-//                        }
                         CostList[i].push_back(cost);
                     }
                 }
@@ -281,8 +277,7 @@ int getCorrespondentGraphNodes(vector<vector<float>> &graphCoordinates, float po
 
     for (int i = 0; i < realGraphIndexes.size(); i++) {
         temp_distance = float(
-                sqrt(pow(pointX - graphCoordinates[i][0], 2) +
-                     pow(pointY - graphCoordinates[i][1], 2)));
+                sqrt(pow(pointX - graphCoordinates[realGraphIndexes[i]][0], 2) + pow(pointY - graphCoordinates[realGraphIndexes[i]][1], 2)));
         if (temp_distance < distance) {
             distance = temp_distance;
             index = i;
@@ -293,9 +288,9 @@ int getCorrespondentGraphNodes(vector<vector<float>> &graphCoordinates, float po
 
 void getPathCoordinatesFromIndex(vector<vector<float>> &graphCoordinates, const vector<double> &pathIndexes, vector<vector<float>> &pathCoordinates) {
     for (int i = 0; i < pathIndexes.size(); i++) {
-        pathCoordinates[i][0] = graphCoordinates[i][0];
-        pathCoordinates[i][1] = graphCoordinates[i][1];
-        pathCoordinates[i][2] = graphCoordinates[i][2];
+        pathCoordinates[i][0] = graphCoordinates[pathIndexes[i]][0];
+        pathCoordinates[i][1] = graphCoordinates[pathIndexes[i]][1];
+        pathCoordinates[i][2] = graphCoordinates[pathIndexes[i]][2];
     }
 }
 
@@ -334,12 +329,18 @@ void calculateAllCosts(const vector<double> &pathIndexes, vector<vector<float>> 
 int main(int argc, char **argv) {
     /*------------Setup------------*/
 
-    string octomapFilePath {"/home/douglas/catkin_ws/src/dijkstra_planning/resources/corridor_thursday_01_mod.ot"};
+    string octomapFilePath {"resources/campinho20.ot"};
     int metric {1}; // 1 -> Distance, 2 -> Height, 3 -> Combined
     float distanceWeight {1.0f};
     float heightWeight {50.0f};
 
     auto start = high_resolution_clock::now();
+
+    // Corredor
+//    float startPositionX = 0.0f;
+//    float startPositionY = 0.0f;
+//    float goalPositionX = -12.10f;
+//    float goalPositionY = 16.4f;
 
     // Campinho
     float startPositionX {13.8f};
@@ -360,8 +361,8 @@ int main(int argc, char **argv) {
     vector<double> pathIndexes;
     vector<int> realGraphIndexes;
 
-    AdjacencyList AdjacencyList(N, std::vector<int>(0));
-    CostList CostList(N, std::vector<float>(0));
+    AdjacencyList AdjacencyList(N, std::vector<int>());
+    CostList CostList(N, std::vector<float>());
 
     /*------------Graph Creation and Cost Calculation------------*/
 
@@ -372,9 +373,9 @@ int main(int argc, char **argv) {
     int startNodeID = getCorrespondentGraphNodes(graphCoordinates, startPositionX, startPositionY, realGraphIndexes);
     int goalNodeID = getCorrespondentGraphNodes(graphCoordinates, goalPositionX, goalPositionY, realGraphIndexes);
 
-    std::ofstream MyFile("/home/douglas/Área de Trabalho/Dijkstra/graph.txt");
+    std::ofstream MyFile("results/graph.txt");
 
-    for (int realGraphIndex: realGraphIndexes) {
+    for (auto const& realGraphIndex: realGraphIndexes) {
         MyFile << graphCoordinates[realGraphIndex][0] << " "
                << graphCoordinates[realGraphIndex][1] << " "
                << graphCoordinates[realGraphIndex][2] << std::endl;
@@ -403,7 +404,7 @@ int main(int argc, char **argv) {
 
     /*------------Calculating costs for all metrics and saving results on file------------*/
 
-    std::ofstream ResultsFile("/home/douglas/catkin_ws/src/dijkstra_planning/resources/logs.txt", std::ios_base::app);
+    std::ofstream ResultsFile("results/logs.txt", std::ios_base::app);
     ResultsFile << "Octomap utilizado: " << octomapFilePath << std::endl;
     ResultsFile << "Coordenada Inicial: x = " << startPositionX << ", y = " << startPositionY << std::endl;
     ResultsFile << "Coordenada Final: x = " << goalPositionX << ", y = " << goalPositionY << std::endl;
