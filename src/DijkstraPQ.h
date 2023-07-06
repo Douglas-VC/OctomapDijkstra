@@ -4,7 +4,7 @@
 #include <vector>
 
 // Dijkstra implementation using Priority Queue
-double DijkstraPQ(const std::vector<std::vector<int>> &AdjacencyList, const std::vector<std::vector<float>> &CostList,
-                int SID, int FID, std::vector<double> &pathIndexes);
+float DijkstraPQ(const std::vector<std::vector<int>> &AdjacencyList, const std::vector<std::vector<float>> &CostList,
+                int SID, int FID, std::vector<int> &pathIndexes);
 
 #endif //OCTOMAPDIJKSTRA_DIJKSTRAPQ_H

@@ -9,8 +9,8 @@ using std::vector;
 using std::pair;
 
 // Dijkstra implementation using Priority Queue
-double DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<float>> &CostList,
-                int SID, int FID, vector<double> &pathIndexes) {
+float DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<float>> &CostList,
+                int start, int end, vector<int> &pathIndexes) {
 
     int size {static_cast<int>(AdjacencyList.size())};
 
@@ -18,17 +18,17 @@ double DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<
     vector<float> cost(size, static_cast<float>(INT32_MAX));
     vector<int> parents(size);
 
-    pq.emplace(0.0f, SID);
-    cost[SID] = 0.0f;
-    parents[SID] = SID;
+    pq.emplace(0.0f, start);
+    cost[start] = 0.0f;
+    parents[start] = start;
 
-    double finalCost {};
+    float finalCost {};
     while(!pq.empty()) {
         float currCost {pq.top().first};
         int node {pq.top().second};
         pq.pop();
 
-        if(node == FID) {
+        if(node == end) {
             finalCost = currCost;
             break;
         }
@@ -44,12 +44,12 @@ double DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<
         }
     }
 
-    int node {FID};
+    int node {end};
     while(parents[node] != node) {
         pathIndexes.push_back(node);
         node = parents[node];
     }
-    pathIndexes.push_back(SID);
+    pathIndexes.push_back(start);
     std::reverse(pathIndexes.begin(), pathIndexes.end());
 
     return finalCost;

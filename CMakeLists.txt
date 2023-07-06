@@ -12,8 +12,8 @@ include_directories(include ${PCL_INCLUDE_DIRS} ${OCTOMAP_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-SET(TARGET_H src/Dijkstra.h)
-SET(TARGET_SRC src/Dijkstra.cpp src/DijkstraPQ.cpp src/DijkstraPQ.h)
+SET(TARGET_H src/DijkstraOLD.h)
+SET(TARGET_SRC src/DijkstraOLD.cpp src/DijkstraPQ.cpp src/DijkstraPQ.h)
 
 add_executable(OctomapDijkstra src/main.cpp ${TARGET_H} ${TARGET_SRC})
 target_link_libraries(OctomapDijkstra ${PCL_LIBRARIES} ${OCTOMAP_LIBRARIES})

@@ -5,7 +5,7 @@
 #include <cmath>
 #include <octomap/octomap.h>
 #include <chrono>
-#include "Dijkstra.h"
+#include "DijkstraOLD.h"
 #include "DijkstraPQ.h"
 
 using std::cout;
@@ -19,21 +19,18 @@ using PointCloud = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 using Octree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>;
 using timePoint = std::chrono::high_resolution_clock::time_point;
 
-typedef std::vector<std::vector<int>> AdjacencyList;
-typedef std::vector<std::vector<float>> CostList;
-
 void printExecutionTime(timePoint start, timePoint stop, const std::string &mode) {
     duration<double, std::milli> duration = stop - start;
     if (mode == "setup") {
-        std::cout << "Setup levou "
-                  << duration.count() / 1000
-                  << " segundos para executar."
-                  << std::endl;
+        cout << "Setup levou "
+              << duration.count() / 1000
+              << " segundos para executar."
+              << endl;
     } else if (mode == "dijkstra") {
-        std::cout << "Dijkstra levou "
-                  << duration.count() / 1000
-                  << " segundos para executar."
-                  << std::endl;
+        cout << "Dijkstra levou "
+              << duration.count() / 1000
+              << " segundos para executar."
+              << endl;
     }
 }
 
@@ -47,16 +44,16 @@ PointCloud importPointCloud() {
         exit(-1);
     }
 
-    std::cout << "Nuvem de pontos carregada: "
-              << cloud->width * cloud->height
-              << " pontos foram obtidos. "
-              << std::endl;
+    cout << "Nuvem de pontos carregada: "
+          << cloud->width * cloud->height
+          << " pontos foram obtidos. "
+          << std::endl;
 
     return cloud;
 }
 
 PointCloud importOctomapCreatePointCloud(const std::string &octomapFilePath, float &graphAndOctreeResolution) {
-    std::cout << "Importando e processando octomap." << std::endl;
+    cout << "Importando e processando octomap." << endl;
 
     octomap::AbstractOcTree *otTree = octomap::AbstractOcTree::read(octomapFilePath);
     auto octomap = dynamic_cast<octomap::OcTree *>(otTree);
@@ -65,19 +62,17 @@ PointCloud importOctomapCreatePointCloud(const std::string &octomapFilePath, flo
 
     PointCloud cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-    std::ofstream MyFile("/home/douglas/Área de Trabalho/Dijkstra/frontierOctomap.txt");
-
     for (octomap::OcTree::leaf_iterator it = octomap->begin_leafs(), end = octomap->end_leafs(); it != end; ++it) {
         if (octomap->isNodeOccupied(*it)) {
             octomap::OcTreeKey neighbour = it.getKey();
-            neighbour[2] += 1;
+            neighbour[2]++;
             octomap::OcTreeNode *result = octomap->search(neighbour);
-            if (result != nullptr && !octomap->isNodeOccupied(*result)) {
-                cloud->push_back(pcl::PointXYZ(float(it.getX()), float(it.getY()), float(it.getZ())));
-                MyFile << it.getX() << " "
-                       << it.getY() << " "
-                       << it.getZ() << std::endl;
-            }
+            if (result != nullptr && !octomap->isNodeOccupied(*result))
+                cloud->push_back(pcl::PointXYZ(
+                                        static_cast<float>(it.getX()),
+                                        static_cast<float>(it.getY()),
+                                        static_cast<float>(it.getZ()
+                                        )));
         }
     }
 
@@ -87,7 +82,6 @@ PointCloud importOctomapCreatePointCloud(const std::string &octomapFilePath, flo
 
 Octree transformPointCloudToOctree(const PointCloud &cloud, float resolution) {
     Octree octree(resolution);
-
     octree.setInputCloud(cloud);
     octree.addPointsFromInputCloud();
     return octree;
@@ -101,10 +95,10 @@ void getMatrixDimensions(const PointCloud &cloud, int &rows, int &columns, float
     columns = static_cast<int>(floor(fabs((maxPt.x - minPt.x)) / graphResolution)) + 1;
 }
 
-void populateAdjacencyList(AdjacencyList &AdjacencyList, int rows, int columns) {
+void populateAdjacencyList(vector<vector<int>> &AdjacencyList, int rows, int columns) {
     int N = rows * columns;
-    for (int i = 0; i < N; i++) {
-        for (int j = i; j < N; j++) {
+    for (int i = 0; i < N; ++i) {
+        for (int j = i; j < N; ++j) {
             if (j > i + 2 * columns) {
                 break;
             } else if ((j == i + 1 && (i + 1) % columns != 0)
@@ -118,8 +112,8 @@ void populateAdjacencyList(AdjacencyList &AdjacencyList, int rows, int columns) 
     }
 }
 
-std::vector<double> makeStepVector(double beg, double step, double end) {
-    std::vector<double> vec;
+vector<float> makeStepVector(float beg, float step, float end) {
+    vector<float> vec;
     while (beg <= end) {
         vec.push_back(beg);
         beg += step;
@@ -127,7 +121,7 @@ std::vector<double> makeStepVector(double beg, double step, double end) {
     return vec;
 }
 
-void removeGraphConnections(AdjacencyList &AdjacencyList, int I) {
+void removeGraphConnections(vector<vector<int>> &AdjacencyList, int I) {
     for (int neighbour: AdjacencyList[I]) {
         AdjacencyList[neighbour].erase(std::remove(AdjacencyList[neighbour].begin(), AdjacencyList[neighbour].end(), I),
                                        AdjacencyList[neighbour].end());
@@ -136,11 +130,11 @@ void removeGraphConnections(AdjacencyList &AdjacencyList, int I) {
 }
 
 void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<vector<float>> &graphCoordinates,
-                         AdjacencyList &AdjacencyList, int rows, int columns, float graphResolution,
+                         vector<vector<int>> &AdjacencyList, int rows, int columns, float graphResolution,
                          vector<int> &realGraphIndexes) {
     pcl::PointXYZ minPt, maxPt;
-    std::vector<int> pointIdxNKNSearch;
-    std::vector<float> pointNKNSquaredDistance;
+    vector<int> pointIdxNKNSearch;
+    vector<float> pointNKNSquaredDistance;
 
     pcl::getMinMax3D(*cloud, minPt, maxPt);
 
@@ -148,10 +142,9 @@ void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<v
     auto jValues = makeStepVector(minPt.y, graphResolution, maxPt.y);
 
     float average = 0;
-    for (int i = 0; i < cloud->size(); i++) {
+    for (int i = 0; i < cloud->size(); ++i)
         average += (*cloud)[i].z;
-    }
-    average = average / float(cloud->size());
+    average = average / static_cast<float>(cloud->size());
 
     pcl::PointXYZ searchPoint;
     searchPoint.x = 0.0f;
@@ -161,9 +154,9 @@ void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<v
     int index = 0;
 
     for (int j = rows - 1; j >= 0; j--) {
-        for (int i = 0; i < columns; i++) {
-            searchPoint.x = (float) iValues[i];
-            searchPoint.y = (float) jValues[j];
+        for (int i = 0; i < columns; ++i) {
+            searchPoint.x = iValues[i];
+            searchPoint.y = jValues[j];
             Eigen::Vector3f min_pt = Eigen::Vector3f(searchPoint.x - graphResolution * 0.4f,
                                                      searchPoint.y - graphResolution * 0.4f, -200.0f);
             Eigen::Vector3f max_pt = Eigen::Vector3f(searchPoint.x + graphResolution * 0.4f,
@@ -180,7 +173,7 @@ void getGraphCoordinates(const Octree &octree, const PointCloud &cloud, vector<v
             } else {
                 float aux = (*cloud)[indices[0]].z;
                 int index_aux = 0;
-                for (int k = 1; k < indices.size(); k++) {
+                for (int k = 1; k < indices.size(); ++k) {
                     if ((*cloud)[indices[k]].z < aux) {
                         aux = (*cloud)[indices[k]].z;
                         index_aux = k;
@@ -205,17 +198,17 @@ float distance(float p1_x, float p1_y, float p1_z, float p2_x, float p2_y, float
 }
 
 float height(float p1_z, float p2_z) {
-    return float(fabs(p1_z - p2_z));
+    return static_cast<float>(fabs(p1_z - p2_z));
 }
 
-void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<vector<float>> &graphCoordinates, int metric,
+void calculateCostList(vector<vector<int>> &AdjacencyList, vector<vector<float>> &CostList, vector<vector<float>> &graphCoordinates, int metric,
                        float distanceWeight, float heightWeight) {
     float cost;
     switch (metric) {
         case 1: // Distance
-            for (int i = 0; i < AdjacencyList.size(); i++) {
+            for (int i = 0; i < AdjacencyList.size(); ++i) {
                 if (!AdjacencyList[i].empty()) {
-                    for (int j = 0; j < AdjacencyList[i].size(); j++) {
+                    for (int j = 0; j < AdjacencyList[i].size(); ++j) {
                         cost = distance(
                                 graphCoordinates[i][0],
                                 graphCoordinates[i][1],
@@ -229,11 +222,11 @@ void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<
             }
             break;
         case 2: // Height
-            for (int i = 0; i < AdjacencyList.size(); i++) {
+            for (int i = 0; i < AdjacencyList.size(); ++i) {
                 if (!AdjacencyList[i].empty()) {
-                    for (int j = 0; j < AdjacencyList[i].size(); j++) {
+                    for (int j = 0; j < AdjacencyList[i].size(); ++j) {
                         cost = height(graphCoordinates[i][2], graphCoordinates[AdjacencyList[i][j]][2]);
-                        for (int k = 0; k < AdjacencyList[AdjacencyList[i][j]].size(); k++) {
+                        for (int k = 0; k < AdjacencyList[AdjacencyList[i][j]].size(); ++k) {
                             cost += height(graphCoordinates[AdjacencyList[AdjacencyList[i][j]][k]][2],
                                            graphCoordinates[AdjacencyList[i][j]][2]);
                         }
@@ -245,9 +238,9 @@ void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<
         case 3: // Combined
             float dist_cost;
             float height_cost;
-            for (int i = 0; i < AdjacencyList.size(); i++) {
+            for (int i = 0; i < AdjacencyList.size(); ++i) {
                 if (!AdjacencyList[i].empty()) {
-                    for (int j = 0; j < AdjacencyList[i].size(); j++) {
+                    for (int j = 0; j < AdjacencyList[i].size(); ++j) {
                         dist_cost = distance(
                                 graphCoordinates[i][0],
                                 graphCoordinates[i][1],
@@ -256,7 +249,7 @@ void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<
                                 graphCoordinates[AdjacencyList[i][j]][0],
                                 graphCoordinates[AdjacencyList[i][j]][2]);
                         height_cost = height(graphCoordinates[i][2], graphCoordinates[AdjacencyList[i][j]][2]);
-                        for (int k = 0; k < AdjacencyList[AdjacencyList[i][j]].size(); k++) {
+                        for (int k = 0; k < AdjacencyList[AdjacencyList[i][j]].size(); ++k) {
                             height_cost += height(graphCoordinates[AdjacencyList[AdjacencyList[i][j]][k]][2],
                                                   graphCoordinates[AdjacencyList[i][j]][2]);
                         }
@@ -272,13 +265,15 @@ void calculateCostList(AdjacencyList &AdjacencyList, CostList &CostList, vector<
 }
 
 int getCorrespondentGraphNodes(vector<vector<float>> &graphCoordinates, float pointX, float pointY, vector<int> realGraphIndexes) {
-    int index = 0;
-    float distance = std::numeric_limits<float>::infinity();
+    int index {};
+    float distance {static_cast<float>(INT32_MAX)};
     float temp_distance;
 
-    for (int i = 0; i < realGraphIndexes.size(); i++) {
-        temp_distance = float(
-                sqrt(pow(pointX - graphCoordinates[realGraphIndexes[i]][0], 2) + pow(pointY - graphCoordinates[realGraphIndexes[i]][1], 2)));
+    for (int i = 0; i < realGraphIndexes.size(); ++i) {
+        temp_distance = static_cast<float>(
+                            sqrt(pow(pointX - graphCoordinates[realGraphIndexes[i]][0], 2) +
+                                    pow(pointY - graphCoordinates[realGraphIndexes[i]][1], 2))
+                        );
         if (temp_distance < distance) {
             distance = temp_distance;
             index = i;
@@ -287,8 +282,8 @@ int getCorrespondentGraphNodes(vector<vector<float>> &graphCoordinates, float po
     return realGraphIndexes[index];
 }
 
-void getPathCoordinatesFromIndex(vector<vector<float>> &graphCoordinates, const vector<double> &pathIndexes, vector<vector<float>> &pathCoordinates) {
-    for (int i = 0; i < pathIndexes.size(); i++) {
+void getPathCoordinatesFromIndex(vector<vector<float>> &graphCoordinates, const vector<int> &pathIndexes, vector<vector<float>> &pathCoordinates) {
+    for (int i = 0; i < pathIndexes.size(); ++i) {
         pathCoordinates[i][0] = graphCoordinates[pathIndexes[i]][0];
         pathCoordinates[i][1] = graphCoordinates[pathIndexes[i]][1];
         pathCoordinates[i][2] = graphCoordinates[pathIndexes[i]][2];
@@ -296,22 +291,21 @@ void getPathCoordinatesFromIndex(vector<vector<float>> &graphCoordinates, const 
 }
 
 void printPathCoordinates(vector<vector<float>> &pathCoordinates) {
-    std::cout << "Caminho gerado: " << std::endl;
-
+    cout << "Caminho gerado: " << endl;
     for (auto const &pathCoordinate : pathCoordinates)
-        std::cout << "x: " << pathCoordinate[0] << " y: " << pathCoordinate[1] << std::endl;
+        cout << "x: " << pathCoordinate[0] << " y: " << pathCoordinate[1] << endl;
 }
 
-void calculateAllCosts(const vector<double> &pathIndexes, vector<vector<float>> &graphCoordinates, std::vector<double> &allCosts,
+void calculateAllCosts(const vector<int> &pathIndexes, vector<vector<float>> &graphCoordinates, std::vector<float> &allCosts,
                        float distanceWeight, float heightWeight) {
     int node1;
     int node2;
-    float distanceCost = 0;
-    float heightCost = 0;
-    float combinedCost = 0;
-    for (int i = 0; i < int(pathIndexes.size() - 1); i++) {
-        node1 = int(pathIndexes[i]);
-        node2 = int(pathIndexes[i + 1]);
+    float distanceCost {};
+    float heightCost {};
+    float combinedCost {};
+    for (int i = 0; i < pathIndexes.size() - 1; ++i) {
+        node1 = pathIndexes[i];
+        node2 = pathIndexes[i + 1];
         distanceCost += distance(
                 graphCoordinates[node1][0],
                 graphCoordinates[node1][1],
@@ -327,10 +321,10 @@ void calculateAllCosts(const vector<double> &pathIndexes, vector<vector<float>> 
     allCosts[2] = combinedCost;
 }
 
-int main(int argc, char **argv) {
+int main() {
     /*------------Setup------------*/
 
-    string octomapFilePath {"resources/campinho10.ot"};
+    string octomapFilePath {"resources/campinho20.ot"};
     int metric {1}; // 1 -> Distance, 2 -> Height, 3 -> Combined
     float distanceWeight {1.0f};
     float heightWeight {50.0f};
@@ -359,11 +353,10 @@ int main(int argc, char **argv) {
     int N {rows * columns};
 
     vector<vector<float>> graphCoordinates(N, vector<float>(3));
-    vector<double> pathIndexes;
     vector<int> realGraphIndexes;
 
-    AdjacencyList AdjacencyList(N, std::vector<int>());
-    CostList CostList(N, std::vector<float>());
+    vector<vector<int>> AdjacencyList(N, vector<int>());
+    vector<vector<float>> CostList(N, vector<float>());
 
     /*------------Graph Creation and Cost Calculation------------*/
 
@@ -374,13 +367,13 @@ int main(int argc, char **argv) {
     int startNodeID = getCorrespondentGraphNodes(graphCoordinates, startPositionX, startPositionY, realGraphIndexes);
     int goalNodeID = getCorrespondentGraphNodes(graphCoordinates, goalPositionX, goalPositionY, realGraphIndexes);
 
-    std::ofstream MyFile("results/graph.txt");
-
-    for (auto const& realGraphIndex: realGraphIndexes) {
-        MyFile << graphCoordinates[realGraphIndex][0] << " "
-               << graphCoordinates[realGraphIndex][1] << " "
-               << graphCoordinates[realGraphIndex][2] << std::endl;
-    }
+//    std::ofstream MyFile("results/graph.txt");
+//
+//    for (auto const& realGraphIndex: realGraphIndexes) {
+//        MyFile << graphCoordinates[realGraphIndex][0] << " "
+//               << graphCoordinates[realGraphIndex][1] << " "
+//               << graphCoordinates[realGraphIndex][2] << std::endl;
+//    }
 
     auto stop = high_resolution_clock::now();
     printExecutionTime(start, stop, "setup");
@@ -389,7 +382,8 @@ int main(int argc, char **argv) {
 
     start = high_resolution_clock::now();
 
-    double totalCost = DijkstraPQ(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
+    vector<int> pathIndexes;
+    float totalCost = DijkstraPQ(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
 
     stop = high_resolution_clock::now();
     printExecutionTime(start, stop, "dijkstra");
@@ -413,18 +407,17 @@ int main(int argc, char **argv) {
                 << std::endl;
     ResultsFile << "Peso métrica distância: " << distanceWeight << " - Peso métrica altura: " << heightWeight
                 << std::endl;
-    std::vector<double> allCosts(3);
+    vector<float> allCosts(3);
     calculateAllCosts(pathIndexes, graphCoordinates, allCosts, distanceWeight, heightWeight);
     ResultsFile << "Custo total - Métrica distância: " << allCosts[0] << " m" << std::endl;
     ResultsFile << "Custo total - Métrica altura: " << allCosts[1] << " m" << std::endl;
     ResultsFile << "Custo total - Métrica combinada: " << allCosts[2] << " m" << std::endl;
     ResultsFile << "Coordenadas do caminho gerado: ";
-    for (int i = 0; i < pathCoordinates.size(); i++) {
-        if (i == pathCoordinates.size() - 1) {
+    for (int i = 0; i < pathCoordinates.size(); ++i) {
+        if (i == pathCoordinates.size() - 1)
             ResultsFile << "(" << pathCoordinates[i][0] << ", " << pathCoordinates[i][1] << ")\n";
-        } else {
+        else
             ResultsFile << "(" << pathCoordinates[i][0] << ", " << pathCoordinates[i][1] << "), ";
-        }
     }
     ResultsFile << "\n------------------------------------------------------\n" << std::endl;
 
