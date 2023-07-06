@@ -1,31 +1,31 @@
-#include "DijkstraPQ.h"
+#include "DijkstraSET.h"
 #include <vector>
 #include <algorithm>
 #include <cstdint>
-#include <queue>
+#include <set>
 
 using std::vector;
 using std::pair;
 
-// Dijkstra implementation using a Priority Queue
-float DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<float>> &CostList,
-                int start, int end, vector<int> &pathIndexes) {
+// Dijkstra implementation using a Set
+float DijkstraSET(const vector<vector<int>> &AdjacencyList, const vector<vector<float>> &CostList,
+                 int start, int end, vector<int> &pathIndexes) {
 
     int size {static_cast<int>(AdjacencyList.size())};
 
-    std::priority_queue<pair<float, int>, vector<pair<float, int>>, std::greater<>> pq;
+    std::set<pair<float, int>> set;
     vector<float> cost(size, static_cast<float>(INT32_MAX));
     vector<int> parents(size);
 
-    pq.emplace(0.0f, start);
+    set.emplace(0.0f, start);
     cost[start] = 0.0f;
     parents[start] = start;
 
     float finalCost {};
-    while(!pq.empty()) {
-        float currCost {pq.top().first};
-        int node {pq.top().second};
-        pq.pop();
+    while(!set.empty()) {
+        float currCost {set.begin()->first};
+        int node {set.begin()->second};
+        set.erase(*set.begin());
 
         if(node == end) {
             finalCost = currCost;
@@ -36,8 +36,10 @@ float DijkstraPQ(const vector<vector<int>> &AdjacencyList, const vector<vector<f
             int adjNode {AdjacencyList[node][i]};
             float newCost {currCost + CostList[node][i]};
             if(newCost < cost[adjNode]) {
+                if(cost[adjNode] != static_cast<float>(INT32_MAX))
+                    set.erase({cost[adjNode], adjNode});
                 cost[adjNode] = newCost;
-                pq.emplace(newCost, adjNode);
+                set.emplace(newCost, adjNode);
                 parents[adjNode] = node;
             }
         }

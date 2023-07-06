@@ -7,6 +7,7 @@
 #include <chrono>
 #include "DijkstraOLD.h"
 #include "DijkstraPQ.h"
+#include "DijkstraSET.h"
 
 using std::cout;
 using std::cin;
@@ -383,7 +384,7 @@ int main() {
     start = high_resolution_clock::now();
 
     vector<int> pathIndexes;
-    float totalCost = DijkstraPQ(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
+    float totalCost = DijkstraSET(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
 
     stop = high_resolution_clock::now();
     printExecutionTime(start, stop, "dijkstra");

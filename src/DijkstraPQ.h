@@ -3,7 +3,7 @@
 
 #include <vector>
 
-// Dijkstra implementation using Priority Queue
+// Dijkstra implementation using a Priority Queue
 float DijkstraPQ(const std::vector<std::vector<int>> &AdjacencyList, const std::vector<std::vector<float>> &CostList,
                 int SID, int FID, std::vector<int> &pathIndexes);
 
