@@ -6,6 +6,7 @@
 #include <octomap/octomap.h>
 #include <chrono>
 #include "Dijkstra.h"
+#include "DijkstraPQ.h"
 
 using std::cout;
 using std::cin;
@@ -329,7 +330,7 @@ void calculateAllCosts(const vector<double> &pathIndexes, vector<vector<float>> 
 int main(int argc, char **argv) {
     /*------------Setup------------*/
 
-    string octomapFilePath {"resources/campinho20.ot"};
+    string octomapFilePath {"resources/campinho10.ot"};
     int metric {1}; // 1 -> Distance, 2 -> Height, 3 -> Combined
     float distanceWeight {1.0f};
     float heightWeight {50.0f};
@@ -388,13 +389,13 @@ int main(int argc, char **argv) {
 
     start = high_resolution_clock::now();
 
-    double totalCost = Dijkstra(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
+    double totalCost = DijkstraPQ(AdjacencyList, CostList, startNodeID, goalNodeID, pathIndexes);
 
     stop = high_resolution_clock::now();
     printExecutionTime(start, stop, "dijkstra");
 
-    std::cout << "Métrica utilizada: " << (metric == 1 ? "Distância" : metric == 2 ? "Altura" : "Combinada");
-    std::cout << " - Custo total: " << totalCost << " m." << std::endl;
+    cout << "Métrica utilizada: " << (metric == 1 ? "Distância" : metric == 2 ? "Altura" : "Combinada");
+    cout << " - Custo total: " << totalCost << " m." << std::endl;
 
     /*------------Path Processing------------*/
 
